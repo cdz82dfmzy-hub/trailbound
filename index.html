@@ -5,7 +5,7 @@ const puzzles=[{"id":"002rd","fen":"r6k/q1pb1p1p/1b3Pr1/p1ppP2Q/3P2p1/4B3/PP2NRP
 let order=[],oi=0;
 let pi=0,state=null,solution=[],step=1,selected=null,startState=null,failed=false,done=false,viewSide="w",playerSide="w";
 let stats=JSON.parse(localStorage.getItem("problemStats")||'{"solved":0,"errors":0,"streak":0,"elo":1000}');if(!Number.isFinite(stats.elo))stats.elo=1000;
-function shufflePuzzles(){let target=stats.elo||1000;order=[...Array(puzzles.length).keys()].sort((a,b)=>Math.abs(puzzles[a].rating-target)-Math.abs(puzzles[b].rating-target)+(Math.random()-.5)*120);oi=0}
+function shufflePuzzles(){let target=stats.elo||1000;let ranked=[...Array(puzzles.length).keys()].sort((a,b)=>Math.abs(puzzles[a].rating-target)-Math.abs(puzzles[b].rating-target));let band=ranked.slice(0,Math.min(20,ranked.length));for(let i=band.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[band[i],band[j]]=[band[j],band[i]]}order=band;oi=0}
 shufflePuzzles();
 function parseFen(f){let [pos,side]=f.split(" ");let b={};let rows=pos.split("/");for(let r=0;r<8;r++){let file=0;for(let c of rows[r]){if(/\d/.test(c))file+=+c;else{b[String.fromCharCode(97+file)+(8-r)]=c;file++}}}return {b,side}}
 function apply(s,m){let a=m.slice(0,2),z=m.slice(2,4),pc=s.b[a];if(!pc)return;s.b[z]=m[4]?(pc===pc.toUpperCase()?m[4].toUpperCase():m[4]):pc;delete s.b[a];s.side=s.side==="w"?"b":"w"}
@@ -19,5 +19,5 @@ function save(){localStorage.setItem("problemStats",JSON.stringify(stats))}
 function updateStats(){solved.textContent=stats.solved;streak.textContent=stats.streak;document.getElementById("elo").textContent=stats.elo;document.getElementById("eloTop").textContent=stats.elo}
 document.getElementById("retry").onclick=()=>{state=clone(startState);step=1;selected=null;done=false;setStatus("Trouvez le meilleur coup.","");render()};
 document.getElementById("next").onclick=()=>{shufflePuzzles();load()};
-load();
+try{load()}catch(e){console.error(e);document.getElementById("status").textContent="Erreur de chargement — rechargez la page";document.getElementById("status").className="status bad"}
 </script></body></html>
