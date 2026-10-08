@@ -32,11 +32,13 @@ function updateStats(){document.getElementById("elo").textContent=stats.elo;docu
 function updateHintButton(){let b=document.getElementById("hintBtn");b.textContent="💡 Indice ("+(3-hintsUsed)+")";b.disabled=done||hintsUsed>=3;b.style.opacity=b.disabled?".45":"1"}
 document.getElementById("hintBtn").onclick=()=>{if(done||thinking||hintsUsed>=3)return;let m=solution[step];if(!m)return;hintSquare=m.slice(0,2);hintsUsed++;updateHintButton();setStatus("La pièce à jouer est surlignée.","");render()};
 const boardEl=document.getElementById("board");
-function squareAt(x,y){let e=document.elementFromPoint(x,y);let cell=e&&e.closest(".sq");return cell&&boardEl.contains(cell)?cell.dataset.sq:null}
-boardEl.addEventListener("pointerdown",e=>{if(done||thinking)return;let sq=squareAt(e.clientX,e.clientY),pc=sq&&state.b[sq];if(!pc||!((state.side==="w"&&pc===pc.toUpperCase())||(state.side==="b"&&pc===pc.toLowerCase())))return;dragStart={sq,x:e.clientX,y:e.clientY,id:e.pointerId};dragMoved=false},{passive:true});
-boardEl.addEventListener("pointermove",e=>{if(!dragStart||e.pointerId!==dragStart.id)return;if(Math.hypot(e.clientX-dragStart.x,e.clientY-dragStart.y)>12)dragMoved=true},{passive:true});
-boardEl.addEventListener("pointerup",e=>{if(!dragStart||e.pointerId!==dragStart.id)return;let start=dragStart.sq,moved=dragMoved;dragStart=null;dragMoved=false;if(!moved)return;suppressClickUntil=Date.now()+450;let target=squareAt(e.clientX,e.clientY);if(!target||target===start){selected=null;render();return}selected=start;tap(target)},{passive:true});
-boardEl.addEventListener("pointercancel",()=>{dragStart=null;dragMoved=false});
+function squareAt(x,y){let r=boardEl.getBoundingClientRect();if(x<r.left||x>=r.right||y<r.top||y>=r.bottom)return null;let col=Math.min(7,Math.floor((x-r.left)/r.width*8)),row=Math.min(7,Math.floor((y-r.top)/r.height*8));let white=playerSide==="w";return String.fromCharCode((white?97+col:104-col))+(white?8-row:1+row)}
+function isOwnPiece(sq){let pc=sq&&state.b[sq];return !!pc&&(state.side==="w"?pc===pc.toUpperCase():pc===pc.toLowerCase())}
+let touchDrag=null;
+boardEl.addEventListener("touchstart",e=>{if(done||thinking||e.touches.length!==1){touchDrag=null;return}let t=e.touches[0],sq=squareAt(t.clientX,t.clientY);touchDrag=isOwnPiece(sq)?{sq,x:t.clientX,y:t.clientY,moved:false}:null},{passive:true});
+boardEl.addEventListener("touchmove",e=>{if(!touchDrag||e.touches.length!==1)return;let t=e.touches[0];if(Math.hypot(t.clientX-touchDrag.x,t.clientY-touchDrag.y)>10){touchDrag.moved=true;e.preventDefault()}},{passive:false});
+boardEl.addEventListener("touchend",e=>{if(!touchDrag)return;let drag=touchDrag;touchDrag=null;if(!drag.moved)return;e.preventDefault();suppressClickUntil=Date.now()+650;let t=e.changedTouches[0],target=squareAt(t.clientX,t.clientY);if(!target||target===drag.sq){selected=null;render();return}selected=drag.sq;tap(target)},{passive:false});
+boardEl.addEventListener("touchcancel",()=>{touchDrag=null});
 document.getElementById("retry").onclick=()=>{state=clone(startState);step=1;selected=null;hintSquare=null;thinking=false;done=false;updateHintButton();setStatus("Trouvez le meilleur coup.","");render()};
 document.getElementById("next").onclick=()=>{oi++;load()};
 load()
