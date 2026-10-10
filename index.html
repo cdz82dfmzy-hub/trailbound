@@ -75,28 +75,28 @@ function newPallet(f,i){let type=PRODUCT_TYPES[(f.id+i)%PRODUCT_TYPES.length];re
 function allPallets(f){return [...f.pallets,...f.staging,...f.stored,...f.picking,...f.shipping]}
 function station(type){let m=accessMap();return game.items.filter(i=>i.type===type).flatMap(i=>neighbors(i.x,i.y).filter(([x,y])=>m.reachable.has(x+','+y)).map(([x,y])=>({x,y,device:i})))}
 function availableStation(type,from,used){let m=accessMap();return station(type).filter(v=>!used.has(v.device.x+','+v.device.y)).map(v=>({...v,path:pathBetween(m,from,{x:v.x,y:v.y})})).filter(v=>v.path.length).sort((a,b)=>a.path.length-b.path.length)[0]}
-function reservedDevices(f,states){return new Set(allPallets(f).filter(p=>states.includes(p.state)&&p.slot).map(p=>p.slot.device.x+','+p.slot.device.y))}
+function reservedDevices(f,states){let used=new Set();for(const p of allPallets(f)){if(p.slot&&states.includes(p.state))used.add(p.slot.device.x+','+p.slot.device.y);if(states.includes(p.state)&&!p.slot&&p.state!=='carried')used.add(p.x+','+p.y)}return used}
 function task(a,p,phase,dest){let m=accessMap();let path=pathBetween(m,{x:Math.round(a.x),y:Math.round(a.y)},dest);if(!path.length)return false;a.job={p,phase,dest,timer:0};a.path=path;a.pathIndex=1;p.worker=a.role;return true}
 function logOnce(f,key,message){if(f.lastWarning===key)return;f.lastWarning=key;note(message);record('logistics_wait',{reason:key,truck:f.id})}
 function receiveTask(a){let f=flow;if(!f)return;let p=f.pallets.find(p=>p.state==='truck'&&!p.worker);if(!p)return;
-let used=reservedDevices(f,['reserved','received']);let slot=availableStation('inbound',{x:f.inDock,y:7},used);
+let used=reservedDevices(f,['reserved','received','carried']);let slot=availableStation('inbound',{x:f.inDock,y:7},used);
 if(!slot){logOnce(f,'receiving_full','⛔ Réception saturée : le cariste doit libérer des postes.');return}
 p.slot=slot;p.state='reserved';if(!task(a,p,'unload',{x:f.inDock,y:7})){p.state='truck';p.slot=null;p.worker=null;return}
 f.lastWarning='';record('pallet_assigned',{id:p.id,kind:p.kind,worker:a.role});}
 function putawayTask(a){let f=flow;if(!f)return;let p=f.staging.find(p=>p.state==='received'&&!p.worker);if(!p)return;
-let used=reservedDevices(f,['putaway','stored']);let slot=availableStation(p.storage,{x:Math.round(a.x),y:Math.round(a.y)},used);
+let used=reservedDevices(f,['putaway','stored','carried']);let slot=availableStation(p.storage,{x:Math.round(a.x),y:Math.round(a.y)},used);
 if(!slot){logOnce(f,'storage_full_'+p.storage,'⛔ Stockage '+(p.storage==='rack'?'racks':'masse')+' saturé ou inaccessible.');return}
 p.slot=slot;p.state='putaway';if(!task(a,p,'collect_receiving',{x:p.x,y:p.y})){p.state='received';p.worker=null;p.slot=null;return}
 f.lastWarning='';record('putaway_assigned',{id:p.id,kind:p.kind,storage:p.storage,worker:a.role})}
 function supplyTask(a){let f=flow;if(!f)return;let p=f.stored.find(p=>p.state==='stored'&&!p.worker);if(!p)return;
-let used=reservedDevices(f,['supplying','ready','preparing']);let slot=availableStation('bench',{x:Math.round(a.x),y:Math.round(a.y)},used);
+let used=reservedDevices(f,['supplying','ready','preparing','prepared','carried']);let slot=availableStation('bench',{x:Math.round(a.x),y:Math.round(a.y)},used);
 if(!slot){logOnce(f,'picking_full','⛔ Postes de préparation occupés.');return}
 p.slot=slot;p.state='supplying';if(!task(a,p,'collect_storage',{x:p.x,y:p.y})){p.state='stored';p.worker=null;p.slot=null;return}
 f.lastWarning='';record('supply_assigned',{id:p.id,worker:a.role})}
 function prepareTask(a){let f=flow;if(!f)return;let p=f.picking.find(p=>p.state==='ready'&&!p.worker);if(!p)return;
 if(!task(a,p,'prepare',{x:p.x,y:p.y}))return;p.state='preparing';record('preparation_started',{id:p.id,worker:a.role})}
 function transferTask(a){let f=flow;if(!f)return;let p=f.picking.find(p=>p.state==='prepared'&&!p.worker);if(!p)return;
-let used=reservedDevices(f,['shipping','shipped_ready','loading']);let slot=availableStation('outbound',{x:Math.round(a.x),y:Math.round(a.y)},used);
+let used=reservedDevices(f,['shipping','shipped_ready','loading','carried']);let slot=availableStation('outbound',{x:Math.round(a.x),y:Math.round(a.y)},used);
 if(!slot){logOnce(f,'shipping_full','⛔ Zone expédition saturée.');return}
 p.slot=slot;p.state='shipping';if(!task(a,p,'collect_prepared',{x:p.x,y:p.y})){p.state='prepared';p.worker=null;p.slot=null;return}
 f.lastWarning='';record('shipping_transfer_assigned',{id:p.id,worker:a.role})}
